@@ -42,8 +42,9 @@ def test_bare_key_args_takes_priority_over_env():
 
 def test_bare_key_not_found_raises():
     ns = {"args": {}, "steps": {}, "env": {}}
-    with pytest.raises(ResolutionError, match="not found in args or environment"):
-        resolve("${TOTALLY_MISSING_XYZ}", ns)
+    with patch.dict(os.environ, {}, clear=True):
+        with pytest.raises(ResolutionError, match="not found in args or environment"):
+            resolve("${TOTALLY_MISSING_XYZ}", ns)
 
 
 def test_env_key_missing_raises():
