@@ -1,4 +1,4 @@
-"""SQL loaders (requires SQLAlchemy: ``pip install sqlalchemy``).
+"""SQL loaders (requires SQLAlchemy: ``pip install scarfolder[sql]``).
 
 Each value passed to the loader is expected to be a ready-to-execute SQL
 string (produced by a transformer).  For bulk inserts of structured data,
