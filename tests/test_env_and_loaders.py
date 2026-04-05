@@ -82,8 +82,7 @@ def test_print_loader_template(capsys):
 def test_print_loader_empty(capsys):
     Print().load([])
     out = capsys.readouterr().out
-    # Empty list → empty output (no crash)
-    assert out.strip() == ""
+    assert out == ""
 
 
 # ---------------------------------------------------------------------------
@@ -218,7 +217,7 @@ def test_execute_statements_stop_on_error():
     sql_mod._engine = lambda _url: engine
     try:
         loader = ExecuteStatements(url="sqlite:///:memory:", stop_on_error=True)
-        with pytest.raises(Exception):
+        with pytest.raises(sa.exc.IntegrityError):
             loader.load([
                 "INSERT INTO t VALUES (1)",
                 "INSERT INTO t VALUES (1)",  # duplicate PK — should abort
