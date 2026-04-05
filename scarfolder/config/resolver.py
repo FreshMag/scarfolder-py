@@ -6,8 +6,9 @@ Supported namespaces
 --------------------
 * ``args``        – runtime arguments (CLI + config defaults).
 * ``steps``       – outputs of completed pipeline steps.
+* ``env``         – OS environment variables: ``${env.DB_PASSWORD}``.
 * ``<ref_name>``  – any key loaded from the ``refs`` section of the scarf.
-* *(bare)*        – ``${key}`` with no dot is treated as ``${args.key}``.
+* *(bare)*        – ``${KEY}`` with no dot checks ``args`` first, then ``os.environ``.
 
 Type preservation
 -----------------
@@ -92,11 +93,21 @@ def _lookup(key: str, namespace: dict[str, Any]) -> Any:
     """Navigate a dotted *key* through *namespace*.
 
     ``"args.language"``  →  ``namespace["args"]["language"]``
-    ``"language"``       →  ``namespace["args"]["language"]``  (bare shorthand)
+    ``"env.DB_PASS"``    →  ``os.environ["DB_PASS"]``
+    ``"MY_VAR"``         →  checks ``args`` first, then ``os.environ``
     """
-    # Bare key (no dot) → treat as args shorthand
+    import os
+
+    # Bare key (no dot): check args first, then fall back to env vars.
     if "." not in key:
-        key = f"args.{key}"
+        args = namespace.get("args", {})
+        if key in args:
+            return args[key]
+        if key in os.environ:
+            return os.environ[key]
+        raise ResolutionError(
+            f"'{key}' not found in args or environment variables."
+        )
 
     parts = key.split(".")
     root, rest = parts[0], parts[1:]
