@@ -58,13 +58,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: npm
-          cache-dependency-path: docs/package-lock.json
+          # cache: npm requires a committed package-lock.json.
+          # Re-enable once `cd docs && npm install` has been committed.
 
       - name: Install dependencies
         if: steps.docs_changed.outputs.changed == 'true'
         working-directory: docs
-        run: npm ci
+        run: npm install
 
       - name: Build
         if: steps.docs_changed.outputs.changed == 'true'
