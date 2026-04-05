@@ -105,3 +105,56 @@ def test_sql_loader_missing_sqlalchemy():
             sys.modules["sqlalchemy"] = real
         if "scarfolder.loaders.sql" in sys.modules:
             del sys.modules["scarfolder.loaders.sql"]
+
+
+# ---------------------------------------------------------------------------
+# ExecuteMany._to_dict — unit tests (no DB required)
+# ---------------------------------------------------------------------------
+
+from scarfolder.loaders.sql import ExecuteMany
+
+
+def _em(mapping):
+    return ExecuteMany(url="sqlite:///:memory:", query="SELECT 1", mapping=mapping)
+
+
+def test_to_dict_from_tuple():
+    assert _em(["a", "b"])._to_dict(("x", "y")) == {"a": "x", "b": "y"}
+
+
+def test_to_dict_from_list():
+    assert _em(["a", "b"])._to_dict(["x", "y"]) == {"a": "x", "b": "y"}
+
+
+def test_to_dict_from_dict_passthrough():
+    d = {"a": 1, "b": 2}
+    assert _em(["a", "b"])._to_dict(d) is d
+
+
+def test_to_dict_scalar_single_mapping():
+    """A scalar value with a 1-key mapping should be wrapped, not iterated."""
+    assert _em(["name"])._to_dict("Alice") == {"name": "Alice"}
+
+
+def test_to_dict_scalar_int():
+    assert _em(["count"])._to_dict(42) == {"count": 42}
+
+
+def test_to_dict_string_not_split():
+    """'abc' must NOT become ['a','b','c'] — it is a scalar here."""
+    assert _em(["code"])._to_dict("abc") == {"code": "abc"}
+
+
+def test_to_dict_bytes_not_split():
+    assert _em(["raw"])._to_dict(b"abc") == {"raw": b"abc"}
+
+
+def test_to_dict_length_mismatch_raises():
+    with pytest.raises(ValueError, match="mapping has 2 keys but value has 1"):
+        _em(["a", "b"])._to_dict(("only_one",))
+
+
+def test_to_dict_no_mapping_raises():
+    em = ExecuteMany(url="sqlite:///:memory:", query="SELECT 1", mapping=None)
+    with pytest.raises(ValueError, match="'mapping' must be set"):
+        em._to_dict(("x", "y"))
