@@ -1,0 +1,11 @@
+services:
+  scarfolder:
+    build:
+      context: ../../          # project root (where the Dockerfile lives)
+    # Mount the entire example directory as /workspace.
+    # Because PYTHONPATH=/workspace in the image, any .py file or package
+    # here is importable by dotted path in scarf.yaml.
+    volumes:
+      - .:/workspace
+    # Run the pipeline defined in scarf.yaml (relative to /workspace)
+    command: ["run", "scarf.yaml"]

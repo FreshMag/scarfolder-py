@@ -1,0 +1,49 @@
+name: hello-world
+description: >
+  Generate personalised greeting lines and write them to a file.
+  Run with: scarfolder run scarf.yaml -poutput=greetings.txt
+
+args:
+  count: 3
+  output: greetings.txt   # set to null to make it a required arg
+
+steps:
+  # --- Step 1: produce first names ----------------------------------------
+  - id: first_names
+    generator:
+      name: scarfolder.generators.util.Constant
+      args:
+        value: Alice
+        count: ${args.count}
+
+  # --- Step 2: produce last names -----------------------------------------
+  - id: last_names
+    generator:
+      name: scarfolder.generators.util.Constant
+      args:
+        value: Wonderland
+        count: ${args.count}
+
+  # --- Step 3: combine into full names ------------------------------------
+  - id: full_names
+    generator:
+      name: scarfolder.generators.util.Combine
+      args:
+        streams:
+          - ${steps.first_names}
+          - ${steps.last_names}
+    transformer: scarfolder.transformers.text.join   # ("Alice", "Wonderland") → "Alice Wonderland"
+
+  # --- Step 4: format greetings and write to file -------------------------
+  - generator:
+      name: scarfolder.generators.util.From
+      args:
+        stream: ${steps.full_names}
+    transformer:
+      name: scarfolder.transformers.text.format_template
+      args:
+        template: "Hello, {value}!"
+    loader:
+      name: scarfolder.loaders.file.WriteLines
+      args:
+        path: ${args.output}

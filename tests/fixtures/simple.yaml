@@ -1,0 +1,9 @@
+name: simple-test
+description: Produces a range of integers
+
+steps:
+  - id: numbers
+    generator:
+      name: scarfolder.generators.util.Range
+      args:
+        stop: 5

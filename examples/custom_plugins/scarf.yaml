@@ -1,0 +1,45 @@
+name: custom-plugins-example
+description: >
+  Generates people using custom generators/loaders mounted in /workspace.
+  Run: docker compose run --rm scarfolder
+       docker compose run --rm scarfolder run scarf.yaml -planguage=it -pcount=10
+
+args:
+  language: en
+  count: 5
+  output: output/people.csv
+
+steps:
+  # Generates first names using the custom generator in generators.py
+  - id: names
+    generator:
+      name: generators.Name        # importable because /workspace is on PYTHONPATH
+      args:
+        language: ${args.language}
+        count: ${args.count}
+        distinct: true
+    transformer: scarfolder.transformers.text.capitalize_first
+
+  # Generates surnames
+  - id: surnames
+    generator:
+      name: generators.Surname
+      args:
+        language: ${args.language}
+        count: ${args.count}
+        distinct: true
+    transformer: scarfolder.transformers.text.capitalize_first
+
+  # Combine into full names then write to CSV via custom loader
+  - generator:
+      name: scarfolder.generators.util.Combine
+      args:
+        streams:
+          - ${steps.names}
+          - ${steps.surnames}
+    transformer: scarfolder.transformers.text.join
+    loader:
+      name: loaders.WriteCsv       # custom loader from loaders.py
+      args:
+        path: ${args.output}
+        headers: [full_name]

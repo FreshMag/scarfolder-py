@@ -1,0 +1,26 @@
+name: dependency-test
+description: Combine two streams and join into full names
+
+steps:
+  - id: first_names
+    generator:
+      name: scarfolder.generators.util.Constant
+      args:
+        value: Alice
+        count: 2
+
+  - id: last_names
+    generator:
+      name: scarfolder.generators.util.Constant
+      args:
+        value: Smith
+        count: 2
+
+  - id: full_names
+    generator:
+      name: scarfolder.generators.util.Combine
+      args:
+        streams:
+          - ${steps.first_names}
+          - ${steps.last_names}
+    transformer: scarfolder.transformers.text.join

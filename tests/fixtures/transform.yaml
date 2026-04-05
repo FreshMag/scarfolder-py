@@ -1,0 +1,11 @@
+name: transform-test
+description: Constant values capitalised
+
+steps:
+  - id: words
+    generator:
+      name: scarfolder.generators.util.Constant
+      args:
+        value: hello
+        count: 3
+    transformer: scarfolder.transformers.text.capitalize_first

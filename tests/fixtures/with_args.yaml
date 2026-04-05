@@ -1,0 +1,13 @@
+name: with-args-test
+description: Scarf with configurable args
+
+args:
+  lang: it   # default; overridable via -plang=en
+
+steps:
+  - id: words
+    generator:
+      name: scarfolder.generators.util.Constant
+      args:
+        value: ${args.lang}
+        count: 2

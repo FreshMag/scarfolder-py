@@ -1,0 +1,115 @@
+name: Release
+
+on:
+  # Trigger only when the CI workflow completes successfully on main.
+  # This is the enforcement point: if CI fails, this workflow never runs.
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  release:
+    name: Semantic Release + Docker
+    runs-on: ubuntu-latest
+
+    # Guard: skip if CI did not succeed (e.g. was cancelled).
+    if: github.event.workflow_run.conclusion == 'success'
+
+    permissions:
+      contents: write      # push version bump commit + tag
+      packages: write      # push image to ghcr.io
+      id-token: write      # required by some OIDC-based actions
+
+    steps:
+      - name: Checkout (full history for semantic-release)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # Use a PAT or the default GITHUB_TOKEN.
+          # GITHUB_TOKEN pushes are blocked from triggering further workflows
+          # by default — that's intentional here (no release loop).
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install python-semantic-release
+        run: pip install python-semantic-release
+
+      # -----------------------------------------------------------------------
+      # Determine whether there is anything to release.
+      # `semantic-release version --print` exits 0 and prints the next version
+      # if a release is warranted; exits non-zero otherwise.
+      # -----------------------------------------------------------------------
+      - name: Compute next version
+        id: semver
+        run: |
+          VERSION=$(semantic-release version --print 2>/dev/null || true)
+          if [[ -n "$VERSION" ]]; then
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+            echo "has_release=true"  >> "$GITHUB_OUTPUT"
+          else
+            echo "has_release=false" >> "$GITHUB_OUTPUT"
+            echo "No releasable commits found — skipping release."
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # -----------------------------------------------------------------------
+      # Bump version in pyproject.toml + scarfolder/__init__.py,
+      # commit, create + push git tag.
+      # -----------------------------------------------------------------------
+      - name: Apply version bump
+        if: steps.semver.outputs.has_release == 'true'
+        run: semantic-release version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # -----------------------------------------------------------------------
+      # Docker — build and push to GitHub Container Registry.
+      # Image: ghcr.io/<owner>/scarfolder:<version>
+      #        ghcr.io/<owner>/scarfolder:latest
+      # -----------------------------------------------------------------------
+      - name: Log in to GitHub Container Registry
+        if: steps.semver.outputs.has_release == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        if: steps.semver.outputs.has_release == 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Docker image
+        if: steps.semver.outputs.has_release == 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          # Cache layers between runs using the registry itself.
+          cache-from: type=registry,ref=ghcr.io/${{ github.repository_owner }}/scarfolder:buildcache
+          cache-to:   type=registry,ref=ghcr.io/${{ github.repository_owner }}/scarfolder:buildcache,mode=max
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/scarfolder:${{ steps.semver.outputs.version }}
+            ghcr.io/${{ github.repository_owner }}/scarfolder:latest
+          labels: |
+            org.opencontainers.image.title=scarfolder
+            org.opencontainers.image.description=Data and file scaffolding via configurable YAML pipelines
+            org.opencontainers.image.version=${{ steps.semver.outputs.version }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+
+      # -----------------------------------------------------------------------
+      # Create GitHub Release with auto-generated changelog.
+      # -----------------------------------------------------------------------
+      - name: Publish GitHub Release
+        if: steps.semver.outputs.has_release == 'true'
+        run: semantic-release publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

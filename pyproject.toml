@@ -1,0 +1,59 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "scarfolder"
+version = "0.1.0"
+description = "Data and file scaffolding via configurable YAML pipelines"
+requires-python = ">=3.11"
+dependencies = [
+    "click>=8.1",
+    "pyyaml>=6.0",
+    "pydantic>=2.0",
+]
+
+[project.scripts]
+scarfolder = "scarfolder.cli:main"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4",
+    "pytest-cov>=4.0",
+    "python-semantic-release>=9.0",
+]
+
+[tool.semantic_release]
+# Files where the version string lives — PSR updates both on release.
+version_toml = ["pyproject.toml:project.version"]
+version_variables = ["scarfolder/__init__.py:__version__"]
+
+branch = "main"
+
+# We publish via the workflow (Docker + GitHub Release); no PyPI upload needed.
+upload_to_pypi = false
+build_command = false
+
+[tool.semantic_release.commit_parser_options]
+# Conventional Commits that trigger a release:
+#   fix:  → patch bump
+#   feat: → minor bump
+#   BREAKING CHANGE / feat!: / fix!: → major bump
+allowed_tags = ["feat", "fix", "perf", "refactor", "docs", "style", "test", "chore", "build", "ci"]
+minor_tags = ["feat"]
+patch_tags = ["fix", "perf"]
+
+[tool.semantic_release.changelog]
+# Changelog written to CHANGELOG.md and attached to the GitHub Release.
+changelog_file = "CHANGELOG.md"
+exclude_commit_patterns = ["^chore", "^ci", "^style", "^test"]
+
+[tool.semantic_release.remote]
+type = "github"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["scarfolder*"]
