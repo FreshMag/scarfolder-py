@@ -22,6 +22,9 @@ dev = [
     "pytest-cov>=4.0",
     "python-semantic-release>=9.0",
 ]
+sql = [
+    "sqlalchemy>=2.0",
+]
 
 [tool.semantic_release]
 # Files where the version string lives — PSR updates both on release.

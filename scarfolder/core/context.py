@@ -1,6 +1,7 @@
 """Runtime state threaded through a pipeline execution."""
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from scarfolder.exceptions import ResolutionError
@@ -13,6 +14,7 @@ class ExecutionContext:
 
     * ``args``  – merged CLI params + config defaults.
     * ``steps`` – outputs of completed steps, keyed by step ``id``.
+    * ``env``   – OS environment variables (``${env.MY_VAR}``).
     * Any ref name loaded from the ``refs`` section of the scarf YAML
       (e.g. ``queries`` → contents of ``queries.yaml``).
     """
@@ -53,11 +55,13 @@ class ExecutionContext:
             {
                 "args":   {"lang": "it", ...},
                 "steps":  {"names": [...], ...},
+                "env":    {"DB_PASSWORD": "...", ...},  # os.environ
                 "<ref>":  {...},   # one entry per loaded refs YAML
             }
         """
         return {
             "args": self.args,
             "steps": self._steps,
+            "env": os.environ,
             **self.refs,
         }
