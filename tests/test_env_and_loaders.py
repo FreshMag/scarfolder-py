@@ -158,3 +158,108 @@ def test_to_dict_no_mapping_raises():
     em = ExecuteMany(url="sqlite:///:memory:", query="SELECT 1", mapping=None)
     with pytest.raises(ValueError, match="'mapping' must be set"):
         em._to_dict(("x", "y"))
+
+
+# ---------------------------------------------------------------------------
+# ExecuteStatements / ExecuteMany — positive-path tests against SQLite
+# ---------------------------------------------------------------------------
+
+sa = pytest.importorskip("sqlalchemy", reason="sqlalchemy not installed")
+
+
+def _create_table(engine, ddl: str) -> None:
+    with engine.begin() as conn:
+        conn.execute(sa.text(ddl))
+
+
+def _fetchall(engine, query: str) -> list:
+    with engine.connect() as conn:
+        return conn.execute(sa.text(query)).fetchall()
+
+
+def test_execute_statements_inserts_rows():
+    from scarfolder.loaders.sql import ExecuteStatements
+
+    engine = sa.create_engine("sqlite:///:memory:")
+    _create_table(engine, "CREATE TABLE names (name TEXT)")
+
+    loader = ExecuteStatements(url="sqlite:///:memory:")
+    # Re-use the same engine by monkeypatching _engine
+    import scarfolder.loaders.sql as sql_mod
+    original = sql_mod._engine
+    sql_mod._engine = lambda _url: engine
+    try:
+        loader.load([
+            "INSERT INTO names VALUES ('Alice')",
+            "INSERT INTO names VALUES ('Bob')",
+        ])
+    finally:
+        sql_mod._engine = original
+
+    rows = _fetchall(engine, "SELECT name FROM names ORDER BY name")
+    assert [r[0] for r in rows] == ["Alice", "Bob"]
+
+
+def test_execute_statements_stop_on_error():
+    from scarfolder.loaders.sql import ExecuteStatements
+
+    engine = sa.create_engine("sqlite:///:memory:")
+    _create_table(engine, "CREATE TABLE t (id INTEGER PRIMARY KEY)")
+
+    import scarfolder.loaders.sql as sql_mod
+    original = sql_mod._engine
+    sql_mod._engine = lambda _url: engine
+    try:
+        loader = ExecuteStatements(url="sqlite:///:memory:", stop_on_error=True)
+        with pytest.raises(Exception):
+            loader.load([
+                "INSERT INTO t VALUES (1)",
+                "INSERT INTO t VALUES (1)",  # duplicate PK — should abort
+            ])
+    finally:
+        sql_mod._engine = original
+
+
+def test_execute_many_inserts_rows():
+    from scarfolder.loaders.sql import ExecuteMany
+
+    engine = sa.create_engine("sqlite:///:memory:")
+    _create_table(engine, "CREATE TABLE people (first TEXT, last TEXT)")
+
+    import scarfolder.loaders.sql as sql_mod
+    original = sql_mod._engine
+    sql_mod._engine = lambda _url: engine
+    try:
+        loader = ExecuteMany(
+            url="sqlite:///:memory:",
+            query="INSERT INTO people (first, last) VALUES (:first, :last)",
+            mapping=["first", "last"],
+        )
+        loader.load([("Alice", "Smith"), ("Bob", "Jones")])
+    finally:
+        sql_mod._engine = original
+
+    rows = _fetchall(engine, "SELECT first, last FROM people ORDER BY first")
+    assert rows == [("Alice", "Smith"), ("Bob", "Jones")]
+
+
+def test_execute_many_with_dict_values():
+    from scarfolder.loaders.sql import ExecuteMany
+
+    engine = sa.create_engine("sqlite:///:memory:")
+    _create_table(engine, "CREATE TABLE items (code TEXT, qty INTEGER)")
+
+    import scarfolder.loaders.sql as sql_mod
+    original = sql_mod._engine
+    sql_mod._engine = lambda _url: engine
+    try:
+        loader = ExecuteMany(
+            url="sqlite:///:memory:",
+            query="INSERT INTO items (code, qty) VALUES (:code, :qty)",
+        )
+        loader.load([{"code": "A1", "qty": 10}, {"code": "B2", "qty": 5}])
+    finally:
+        sql_mod._engine = original
+
+    rows = _fetchall(engine, "SELECT code, qty FROM items ORDER BY code")
+    assert rows == [("A1", 10), ("B2", 5)]
