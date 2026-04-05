@@ -135,11 +135,21 @@ class ExecuteMany(Loader):
                 "ExecuteMany: 'mapping' must be set when values are not dicts. "
                 f"Got: {type(value).__name__}"
             )
-        items = list(value) if not isinstance(value, (list, tuple)) else value
+        # Treat lists and tuples as positional sequences.
+        # Wrap scalars (including strings/bytes) as a 1-item sequence rather
+        # than iterating over them, which would split "abc" into ['a','b','c'].
+        if isinstance(value, (list, tuple)):
+            items: list[Any] = list(value)
+        elif isinstance(value, (str, bytes, bytearray)) or not hasattr(value, "__iter__"):
+            items = [value]
+        else:
+            # Other iterables (e.g. generators) — consume once into a list.
+            items = list(value)
         if len(items) != len(self.mapping):
             raise ValueError(
                 f"ExecuteMany: mapping has {len(self.mapping)} keys but "
-                f"value has {len(items)} elements."
+                f"value has {len(items)} element(s). "
+                f"Mapping: {self.mapping!r}, value: {value!r}"
             )
         return dict(zip(self.mapping, items))
 
