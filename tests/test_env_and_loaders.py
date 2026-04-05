@@ -9,7 +9,6 @@ import pytest
 from scarfolder.config.resolver import resolve
 from scarfolder.exceptions import ResolutionError
 from scarfolder.loaders.console import Print
-from scarfolder.loaders.file import WriteLines
 
 
 # ---------------------------------------------------------------------------
