@@ -20,6 +20,7 @@ representation.  When a placeholder appears *within* a larger string
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from typing import Any
 
 from scarfolder.exceptions import ResolutionError
@@ -121,7 +122,7 @@ def _lookup(key: str, namespace: dict[str, Any]) -> Any:
 
     current: Any = namespace[root]
     for part in rest:
-        if isinstance(current, dict):
+        if isinstance(current, Mapping):
             if part not in current:
                 raise ResolutionError(
                     f"Key '{part}' not found while resolving '${{{key}}}' "
@@ -131,6 +132,6 @@ def _lookup(key: str, namespace: dict[str, Any]) -> Any:
         else:
             raise ResolutionError(
                 f"Cannot navigate into '{part}' while resolving '${{{key}}}': "
-                f"expected a dict but got {type(current).__name__}."
+                f"expected a mapping but got {type(current).__name__}."
             )
     return current
