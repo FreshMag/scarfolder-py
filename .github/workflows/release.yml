@@ -22,14 +22,23 @@ jobs:
       id-token: write      # required by some OIDC-based actions
 
     steps:
-      - name: Checkout (full history for semantic-release)
+      # -----------------------------------------------------------------------
+      # IMPORTANT: workflow_run checkouts land on a detached HEAD pointing at
+      # the triggering SHA. python-semantic-release inspects the active branch
+      # name to enforce the `branch = "main"` config, so we must explicitly
+      # check out the ref that was tested, not just its SHA.
+      # -----------------------------------------------------------------------
+      - name: Checkout main (full history for semantic-release)
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.workflow_run.head_branch }}
           fetch-depth: 0
-          # Use a PAT or the default GITHUB_TOKEN.
-          # GITHUB_TOKEN pushes are blocked from triggering further workflows
-          # by default — that's intentional here (no release loop).
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git identity for PSR commits
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -42,26 +51,36 @@ jobs:
 
       # -----------------------------------------------------------------------
       # Determine whether there is anything to release.
-      # `semantic-release version --print` exits 0 and prints the next version
-      # if a release is warranted; exits non-zero otherwise.
+      # PSR v9: `--print` prints the next version and exits 0 when a release
+      # is warranted; exits non-zero (code 2) when nothing has changed.
+      # We capture the exit code explicitly instead of suppressing it with
+      # `|| true`, so real errors (exit 1) still fail the job.
       # -----------------------------------------------------------------------
       - name: Compute next version
         id: semver
         run: |
-          VERSION=$(semantic-release version --print 2>/dev/null || true)
-          if [[ -n "$VERSION" ]]; then
-            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-            echo "has_release=true"  >> "$GITHUB_OUTPUT"
+          set +e
+          VERSION=$(semantic-release version --print)
+          EXIT_CODE=$?
+          set -e
+
+          if [[ $EXIT_CODE -eq 0 && -n "$VERSION" ]]; then
+            echo "version=$VERSION"       >> "$GITHUB_OUTPUT"
+            echo "has_release=true"       >> "$GITHUB_OUTPUT"
+            echo "Next release: $VERSION"
+          elif [[ $EXIT_CODE -eq 2 ]]; then
+            echo "has_release=false"      >> "$GITHUB_OUTPUT"
+            echo "No releasable commits since last tag — skipping."
           else
-            echo "has_release=false" >> "$GITHUB_OUTPUT"
-            echo "No releasable commits found — skipping release."
+            echo "semantic-release exited with unexpected code $EXIT_CODE"
+            exit $EXIT_CODE
           fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # -----------------------------------------------------------------------
       # Bump version in pyproject.toml + scarfolder/__init__.py,
-      # commit, create + push git tag.
+      # commit, tag, and push.
       # -----------------------------------------------------------------------
       - name: Apply version bump
         if: steps.semver.outputs.has_release == 'true'
@@ -92,7 +111,6 @@ jobs:
         with:
           context: .
           push: true
-          # Cache layers between runs using the registry itself.
           cache-from: type=registry,ref=ghcr.io/${{ github.repository_owner }}/scarfolder:buildcache
           cache-to:   type=registry,ref=ghcr.io/${{ github.repository_owner }}/scarfolder:buildcache,mode=max
           tags: |
@@ -103,10 +121,10 @@ jobs:
             org.opencontainers.image.description=Data and file scaffolding via configurable YAML pipelines
             org.opencontainers.image.version=${{ steps.semver.outputs.version }}
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
-            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.revision=${{ github.event.workflow_run.head_sha }}
 
       # -----------------------------------------------------------------------
-      # Create GitHub Release with auto-generated changelog.
+      # Create GitHub Release with changelog body.
       # -----------------------------------------------------------------------
       - name: Publish GitHub Release
         if: steps.semver.outputs.has_release == 'true'
