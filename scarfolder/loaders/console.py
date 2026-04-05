@@ -45,6 +45,7 @@ class Print(Loader):
             self.template.format(value=v, index=i)
             for i, v in enumerate(values)
         ]
-        print(self.separator.join(lines))
+        if lines:
+            print(self.separator.join(lines))
         if self.footer is not None:
             print(self.footer)
