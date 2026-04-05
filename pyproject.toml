@@ -32,7 +32,7 @@ branch = "main"
 
 # We publish via the workflow (Docker + GitHub Release); no PyPI upload needed.
 upload_to_pypi = false
-build_command = false
+build_command = ""
 
 [tool.semantic_release.commit_parser_options]
 # Conventional Commits that trigger a release:
@@ -44,9 +44,11 @@ minor_tags = ["feat"]
 patch_tags = ["fix", "perf"]
 
 [tool.semantic_release.changelog]
+exclude_commit_patterns = ["^chore", "^ci", "^style", "^test"]
+
+[tool.semantic_release.changelog.default_templates]
 # Changelog written to CHANGELOG.md and attached to the GitHub Release.
 changelog_file = "CHANGELOG.md"
-exclude_commit_patterns = ["^chore", "^ci", "^style", "^test"]
 
 [tool.semantic_release.remote]
 type = "github"
