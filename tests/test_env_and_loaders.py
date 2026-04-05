@@ -20,6 +20,13 @@ def test_env_namespace():
     assert resolve("${env.DB_PASS}", ns) == "secret"
 
 
+def test_env_namespace_via_os_environ():
+    """${env.VAR} must work when env is os.environ (a Mapping, not a dict)."""
+    with patch.dict(os.environ, {"DB_HOST": "localhost"}):
+        ns = {"args": {}, "steps": {}, "env": os.environ}
+        assert resolve("${env.DB_HOST}", ns) == "localhost"
+
+
 def test_env_namespace_in_url():
     ns = {"args": {}, "steps": {}, "env": {"DB_PASS": "s3cr3t"}}
     result = resolve("postgres://user:${env.DB_PASS}@localhost/db", ns)
