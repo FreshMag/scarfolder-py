@@ -8,6 +8,26 @@
   <p>
     Define generators, transformers, and loaders — wire them together in YAML — run anywhere.
   </p>
+  <p>
+    <a href="https://github.com/FreshMag/scarfolder-py/actions/workflows/ci.yml">
+      <img alt="CI" src="https://img.shields.io/github/actions/workflow/status/FreshMag/scarfolder-py/ci.yml?branch=main&label=CI&logo=githubactions&logoColor=white" />
+    </a>
+    <a href="https://github.com/FreshMag/scarfolder-py/releases">
+      <img alt="Release" src="https://img.shields.io/github/v/release/FreshMag/scarfolder-py?display_name=tag&logo=github" />
+    </a>
+    <a href="https://github.com/FreshMag/scarfolder-py/blob/main/LICENSE">
+      <img alt="License" src="https://img.shields.io/github/license/FreshMag/scarfolder-py" />
+    </a>
+    <a href="https://github.com/FreshMag/scarfolder-py/stargazers">
+      <img alt="Stars" src="https://img.shields.io/github/stars/FreshMag/scarfolder-py?style=social" />
+    </a>
+    <a href="https://github.com/FreshMag/scarfolder-py">
+      <img alt="Repo Size" src="https://img.shields.io/github/repo-size/FreshMag/scarfolder-py" />
+    </a>
+    <a href="https://github.com/FreshMag/scarfolder-py/issues">
+      <img alt="Issues" src="https://img.shields.io/github/issues/FreshMag/scarfolder-py" />
+    </a>
+  </p>
   <br/>
 </div>
 
