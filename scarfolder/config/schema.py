@@ -54,7 +54,19 @@ def _normalise_plugin_list(raw: Any) -> list[dict]:
     if raw is None:
         return []
     if isinstance(raw, list):
-        return [_normalise_plugin(item) for item in raw]
+        result = []
+        for i, item in enumerate(raw):
+            if item is None:
+                raise ValueError(
+                    f"Plugin list entry at index {i} is null. "
+                    "Each entry must be a plugin name string or a mapping with 'name'."
+                )
+            result.append(_normalise_plugin(item))
+        return result
+    if raw is None:
+        raise ValueError(
+            "Plugin reference is null. Expected a plugin name string or a mapping with 'name'."
+        )
     return [_normalise_plugin(raw)]
 
 

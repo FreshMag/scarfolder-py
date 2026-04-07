@@ -5,7 +5,7 @@ from collections import deque
 from typing import Any
 
 from scarfolder.config.resolver import extract_step_deps, resolve
-from scarfolder.config.schema import PluginRef, ScarConfig, StepConfig
+from scarfolder.config.schema import ScarConfig, StepConfig
 from scarfolder.core.context import ExecutionContext
 from scarfolder.core.registry import make_generator, make_loader, make_transformer
 from scarfolder.exceptions import (
