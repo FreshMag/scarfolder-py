@@ -8,9 +8,15 @@ sidebar_position: 6
 
 Any Python class or plain callable can be a plugin — reference it by its fully qualified dotted path.
 
+## Plugin contract
+
+All data flows through the constructor via the resolved `args` block. The action methods (`generate`, `transform`, `load`) take no positional arguments.
+
+When a transformer or loader is **chained** to a step (i.e. declared on the same step as a generator or as a subsequent transformer), the pipeline automatically injects the previous output as `values`. When used as a **standalone** step, you declare `values` explicitly in `args` using a `${steps.<id>}` placeholder.
+
 ## Class-based plugins
 
-Subclass the appropriate base class from `scarfolder.core.base`. Constructor arguments come directly from the `args` block in YAML.
+Subclass the appropriate base class from `scarfolder.core.base`.
 
 ### Generator
 
@@ -28,6 +34,27 @@ class Name(Generator):
         return [random.choice(self.pool) for _ in range(self.count)]
 ```
 
+A generator can also accept another step's output as an arg. Here `seed_names` comes from a previous step:
+
+```python
+class FilteredName(Generator):
+    def __init__(self, seed_names: list[str], prefix: str = ""):
+        self.seed_names = seed_names   # e.g. from ${steps.name_pool}
+        self.prefix = prefix
+
+    def generate(self) -> list[str]:
+        return [self.prefix + n for n in self.seed_names if len(n) > 3]
+```
+
+```yaml
+- id: filtered
+  generator:
+    name: my_project.generators.FilteredName
+    args:
+      seed_names: ${steps.name_pool}
+      prefix: "Dr. "
+```
+
 ### Transformer
 
 ```python
@@ -35,42 +62,57 @@ class Name(Generator):
 from scarfolder.core.base import Transformer
 
 class AddSuffix(Transformer):
-    def __init__(self, suffix: str = ""):
+    def __init__(self, values: list[str], suffix: str = ""):
+        self.values = values   # auto-injected when chained; explicit otherwise
         self.suffix = suffix
 
-    def transform(self, values: list[str]) -> list[str]:
-        return [v + self.suffix for v in values]
+    def transform(self) -> list[str]:
+        return [v + self.suffix for v in self.values]
 ```
 
 ### Loader
 
 ```python
 # my_project/loaders.py
+import csv
 from pathlib import Path
 from scarfolder.core.base import Loader
 
-class WriteLines(Loader):
-    def __init__(self, path: str):
+class WriteCsv(Loader):
+    def __init__(self, values: list, path: str, headers: list[str] | None = None):
+        self.values = values   # auto-injected when chained; explicit otherwise
         self.path = Path(path)
+        self.headers = headers
 
-    def load(self, values: list) -> None:
+    def load(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text("\n".join(map(str, values)))
+        with self.path.open("w", newline="") as f:
+            writer = csv.writer(f)
+            if self.headers:
+                writer.writerow(self.headers)
+            writer.writerows([[v] for v in self.values])
 ```
 
 ## Function-based plugins
 
 Plain callables work too — useful for stateless transformations.
 
-- **Generator function:** `fn(**kwargs) -> Iterable`
-- **Transformer function:** `fn(values, **kwargs) -> Iterable`
-- **Loader function:** `fn(values, **kwargs) -> None`
+All resolved args are passed as keyword arguments. The input data is just another named keyword argument.
 
 ```python
 # my_project/transforms.py
 
 def shout(values: list[str], mark: str = "!") -> list[str]:
     return [v.upper() + mark for v in values]
+```
+
+```python
+# my_project/loaders.py
+
+def write_report(values: list, path: str) -> None:
+    with open(path, "w") as f:
+        for item in values:
+            f.write(str(item) + "\n")
 ```
 
 ## Referencing plugins in YAML
@@ -83,14 +125,17 @@ steps:
       args:
         language: it
         count: 20
-    transformer:
+    transformer:                        # chained — values auto-injected
       name: my_project.transforms.shout
       args:
         mark: "!!!"
-    loader:
-      name: my_project.loaders.WriteLines
+
+  - loader:                             # standalone — values explicit
+      name: my_project.loaders.WriteCsv
       args:
-        path: output/names.txt
+        values: ${steps.names}
+        path: output/names.csv
+        headers: [name]
 ```
 
 ## Making your plugins importable
