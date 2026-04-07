@@ -1,5 +1,5 @@
 name: transform-test
-description: Constant values capitalised
+description: Constant values capitalised (generator + inline transformer)
 
 steps:
   - id: words
@@ -8,4 +8,4 @@ steps:
       args:
         value: hello
         count: 3
-    transformer: scarfolder.transformers.text.capitalize_first
+    transformer: scarfolder.transformers.text.capitalize_first  # values auto-injected
