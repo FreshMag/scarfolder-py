@@ -5,6 +5,20 @@ the appropriate base-class adapter, so both patterns work in YAML configs:
 
     generator: my_package.generators.MyGenerator   # class-based
     generator: my_package.generators.make_names    # function-based
+
+Function convention
+-------------------
+All data — including references to other steps' outputs — arrives via the
+resolved ``args`` dict and is passed as keyword arguments.  Plain-function
+plugins therefore follow these signatures:
+
+    generator: fn(**kwargs) -> Iterable
+    transformer: fn(**kwargs) -> Iterable
+    loader: fn(**kwargs) -> None
+
+For transformers and loaders the primary data input is simply another named
+keyword argument (e.g. ``values``) whose value is resolved from
+``${steps.<id>}`` in the YAML args block.
 """
 from __future__ import annotations
 
@@ -55,30 +69,37 @@ class _FuncGenerator(Generator):
         self._fn = fn
         self._kwargs = kwargs
 
-    def generate(self):
+    def generate(self) -> Any:
         return self._fn(**self._kwargs)
 
 
 class _FuncTransformer(Transformer):
-    """Wraps a plain function ``fn(values, **kwargs) -> Iterable``."""
+    """Wraps a plain function ``fn(**kwargs) -> Iterable``.
+
+    The primary data input (e.g. ``values``) arrives as a keyword argument
+    resolved from ``${steps.<id>}`` in the YAML args block.
+    """
 
     def __init__(self, fn: Any, kwargs: dict[str, Any]) -> None:
         self._fn = fn
         self._kwargs = kwargs
 
-    def transform(self, values: list[Any]):
-        return self._fn(values, **self._kwargs)
+    def transform(self) -> Any:
+        return self._fn(**self._kwargs)
 
 
 class _FuncLoader(Loader):
-    """Wraps a plain function ``fn(values, **kwargs) -> None``."""
+    """Wraps a plain function ``fn(**kwargs) -> None``.
+
+    The primary data input arrives as a keyword argument (e.g. ``values``).
+    """
 
     def __init__(self, fn: Any, kwargs: dict[str, Any]) -> None:
         self._fn = fn
         self._kwargs = kwargs
 
-    def load(self, values: list[Any]) -> None:
-        self._fn(values, **self._kwargs)
+    def load(self) -> None:
+        self._fn(**self._kwargs)
 
 
 # ---------------------------------------------------------------------------

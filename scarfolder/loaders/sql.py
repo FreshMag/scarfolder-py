@@ -42,8 +42,9 @@ class ExecuteStatements(Loader):
     by an upstream transformer (e.g. ``INSERT INTO …``).
 
     Args:
-        url:         SQLAlchemy connection URL.
-        echo:        Log every executed statement (default ``false``).
+        values:        The sequence of SQL strings — typically ``${steps.<id>}``.
+        url:           SQLAlchemy connection URL.
+        echo:          Log every executed statement (default ``false``).
         stop_on_error: Abort the batch on the first failure (default ``true``).
 
     Example::
@@ -51,20 +52,23 @@ class ExecuteStatements(Loader):
         loader:
           name: scarfolder.loaders.sql.ExecuteStatements
           args:
+            values: ${steps.insert_statements}
             url: postgresql+psycopg2://postgres:${env.DB_PASSWORD}@localhost:5432/mydb
     """
 
     def __init__(
         self,
+        values: list[Any],
         url: str,
         echo: bool = False,
         stop_on_error: bool = True,
     ) -> None:
+        self.values = values
         self.url = url
         self.echo = echo
         self.stop_on_error = stop_on_error
 
-    def load(self, values: list[Any]) -> None:
+    def load(self) -> None:
         text = _sqlalchemy().text
 
         engine = _engine(self.url)
@@ -73,7 +77,7 @@ class ExecuteStatements(Loader):
 
         errors: list[tuple[int, str, Exception]] = []
         with engine.begin() as conn:
-            for i, stmt in enumerate(values):
+            for i, stmt in enumerate(self.values):
                 try:
                     conn.execute(text(str(stmt)))
                 except Exception as exc:
@@ -97,6 +101,7 @@ class ExecuteMany(Loader):
     it is a plain scalar or tuple).
 
     Args:
+        values:   The sequence of rows — typically ``${steps.<id>}``.
         url:      SQLAlchemy connection URL.
         query:    Parameterised SQL with ``:name`` placeholders, e.g.
                   ``INSERT INTO people (name, dob) VALUES (:name, :dob)``
@@ -110,6 +115,7 @@ class ExecuteMany(Loader):
         loader:
           name: scarfolder.loaders.sql.ExecuteMany
           args:
+            values: ${steps.name_rows}
             url: postgresql+psycopg2://postgres:${env.DB_PASSWORD}@localhost/mydb
             query: "INSERT INTO people (first_name, last_name) VALUES (:first_name, :last_name)"
             mapping: [first_name, last_name]
@@ -117,11 +123,13 @@ class ExecuteMany(Loader):
 
     def __init__(
         self,
+        values: list[Any],
         url: str,
         query: str,
         mapping: list[str] | None = None,
         echo: bool = False,
     ) -> None:
+        self.values = values
         self.url = url
         self.query = query
         self.mapping = mapping
@@ -153,13 +161,13 @@ class ExecuteMany(Loader):
             )
         return dict(zip(self.mapping, items))
 
-    def load(self, values: list[Any]) -> None:
+    def load(self) -> None:
         text = _sqlalchemy().text
 
         engine = _engine(self.url)
         if self.echo:
             engine.echo = True
 
-        params = [self._to_dict(v) for v in values]
+        params = [self._to_dict(v) for v in self.values]
         with engine.begin() as conn:
             conn.execute(text(self.query), params)

@@ -10,40 +10,44 @@ class Print(Loader):
     """Print each value to stdout.
 
     Args:
-        template: Optional Python format string. The value is exposed as
-                  ``{value}`` and its index as ``{index}``.
-                  Default: ``"{value}"``
-        separator: String printed between items. Default: ``"\\n"``.
-        header:   Optional line printed once before all values.
-        footer:   Optional line printed once after all values.
+        values:    The sequence to print — typically ``${steps.<id>}``.
+        template:  Optional Python format string.  The value is exposed as
+                   ``{value}`` and its index as ``{index}``.
+                   Default: ``"{value}"``
+        separator: String printed between items.  Default: ``"\\n"``.
+        header:    Optional line printed once before all values.
+        footer:    Optional line printed once after all values.
 
     Example::
 
         loader:
           name: scarfolder.loaders.console.Print
           args:
+            values: ${steps.results}
             header: "--- Results ---"
             template: "  {index}. {value}"
     """
 
     def __init__(
         self,
+        values: list[Any],
         template: str = "{value}",
         separator: str = "\n",
         header: str | None = None,
         footer: str | None = None,
     ) -> None:
+        self.values = values
         self.template = template
         self.separator = separator
         self.header = header
         self.footer = footer
 
-    def load(self, values: list[Any]) -> None:
+    def load(self) -> None:
         if self.header is not None:
             print(self.header)
         lines = [
             self.template.format(value=v, index=i)
-            for i, v in enumerate(values)
+            for i, v in enumerate(self.values)
         ]
         if lines:
             print(self.separator.join(lines))

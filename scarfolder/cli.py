@@ -149,10 +149,14 @@ def list_steps_command(scarf_file: Path) -> None:
         click.echo()
         for i, step in enumerate(config.steps, 1):
             label = step.id or "(unnamed)"
-            gen = step.generator.name
-            tr = f"  → {step.transformer.name}" if step.transformer else ""
-            ld = f"  ⇒ {step.loader.name}" if step.loader else ""
-            click.echo(f"  {i}. [{label}]  {gen}{tr}{ld}")
+            parts: list[str] = []
+            if step.generator:
+                parts.append(f"[G] {step.generator.name}")
+            for t in step.transformers:
+                parts.append(f"[T] {t.name}")
+            for ld in step.loaders:
+                parts.append(f"[L] {ld.name}")
+            click.echo(f"  {i}. [{label}]  {' → '.join(parts)}")
     except ScarfolderError as exc:
         click.echo(f"Error: {exc}", err=True)
         sys.exit(1)

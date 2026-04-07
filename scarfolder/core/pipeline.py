@@ -5,7 +5,7 @@ from collections import deque
 from typing import Any
 
 from scarfolder.config.resolver import extract_step_deps, resolve
-from scarfolder.config.schema import ScarConfig, StepConfig
+from scarfolder.config.schema import PluginRef, ScarConfig, StepConfig
 from scarfolder.core.context import ExecutionContext
 from scarfolder.core.registry import make_generator, make_loader, make_transformer
 from scarfolder.exceptions import (
@@ -32,14 +32,13 @@ def _topological_sort(steps: list[StepConfig]) -> list[StepConfig]:
         s.id: i for i, s in enumerate(steps) if s.id is not None
     }
 
-    # in_degree[i]  = number of steps i must wait for
-    # dependents[j] = list of step indices that depend on j
     in_degree: list[int] = [0] * len(steps)
     dependents: list[list[int]] = [[] for _ in range(len(steps))]
 
     for i, step in enumerate(steps):
         step_label = step.id or f"(index {i})"
-        for dep_id in extract_step_deps(step.model_dump()):
+        # Scan all plugins in the step for ${steps.*} references.
+        for dep_id in extract_step_deps(step.all_plugin_args):
             if dep_id not in id_to_idx:
                 raise ConfigError(
                     f"Step '{step_label}' references unknown step id '{dep_id}'."
@@ -90,11 +89,7 @@ class Pipeline:
         self.context = ExecutionContext(args=merged_args, refs=refs)
 
     def run(self) -> ExecutionContext:
-        """Execute all steps in dependency order.
-
-        Returns the :class:`~scarfolder.core.context.ExecutionContext` so
-        callers can inspect step outputs after the run.
-        """
+        """Execute all steps in dependency order."""
         ordered = _topological_sort(self.config.steps)
         for step in ordered:
             self._execute_step(step)
@@ -109,26 +104,39 @@ class Pipeline:
         ns = self.context.to_namespace_dict()
 
         try:
-            # --- Generator -------------------------------------------
-            gen_args = resolve(step.generator.args, ns)
-            generator = make_generator(step.generator.name, gen_args)
-            values: list[Any] = list(generator.generate())
+            current: list[Any] | None = None
 
-            # --- Transformer (optional) ------------------------------
-            if step.transformer is not None:
-                tr_args = resolve(step.transformer.args, ns)
-                transformer = make_transformer(step.transformer.name, tr_args)
-                values = list(transformer.transform(values))
+            # --- Phase 1: primary producer -----------------------------------
+            if step.generator is not None:
+                args = resolve(step.generator.args, ns)
+                current = list(make_generator(step.generator.name, args).generate())
+                chained = step.transformers  # all transformers are chained
+            elif step.transformers:
+                # First transformer is the primary — must have explicit args.
+                t0 = step.transformers[0]
+                args = resolve(t0.args, ns)
+                current = list(make_transformer(t0.name, args).transform())
+                chained = step.transformers[1:]
+            else:
+                chained = []
 
-            # --- Store output for downstream steps -------------------
-            if step.id is not None:
-                self.context.set_step_output(step.id, values)
+            # --- Phase 2: chained transformers (values auto-injected) --------
+            for t in chained:
+                args = {**resolve(t.args, ns), "values": current}
+                current = list(make_transformer(t.name, args).transform())
 
-            # --- Loader (optional, terminal) -------------------------
-            if step.loader is not None:
-                ld_args = resolve(step.loader.args, ns)
-                loader = make_loader(step.loader.name, ld_args)
-                loader.load(values)
+            # --- Store output (before loaders) --------------------------------
+            if step.id is not None and current is not None:
+                self.context.set_step_output(step.id, current)
+
+            # --- Phase 3: fan-out loaders (values auto-injected) -------------
+            for loader_ref in step.loaders:
+                if current is not None:
+                    args = {**resolve(loader_ref.args, ns), "values": current}
+                else:
+                    # Loader-only step: values must be explicit in args.
+                    args = resolve(loader_ref.args, ns)
+                make_loader(loader_ref.name, args).load()
 
         except ScarfolderError:
             raise
