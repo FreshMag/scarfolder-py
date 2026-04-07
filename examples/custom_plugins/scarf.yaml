@@ -10,7 +10,7 @@ args:
   output: output/people.csv
 
 steps:
-  # Generates first names using the custom generator in generators.py
+  # Generate and capitalise first names in one step
   - id: names
     generator:
       name: generators.Name        # importable because /workspace is on PYTHONPATH
@@ -20,7 +20,7 @@ steps:
         distinct: true
     transformer: scarfolder.transformers.text.capitalize_first
 
-  # Generates surnames
+  # Generate and capitalise surnames in one step
   - id: surnames
     generator:
       name: generators.Surname
@@ -30,7 +30,7 @@ steps:
         distinct: true
     transformer: scarfolder.transformers.text.capitalize_first
 
-  # Combine into full names then write to CSV via custom loader
+  # Zip → join → write to CSV, all in one step
   - generator:
       name: scarfolder.generators.util.Combine
       args:

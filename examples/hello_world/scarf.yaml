@@ -24,25 +24,18 @@ steps:
         value: Wonderland
         count: ${args.count}
 
-  # --- Step 3: combine into full names ------------------------------------
-  - id: full_names
-    generator:
+  # --- Step 3: zip + join + format + write — all in one step --------------
+  - generator:
       name: scarfolder.generators.util.Combine
       args:
         streams:
           - ${steps.first_names}
           - ${steps.last_names}
-    transformer: scarfolder.transformers.text.join   # ("Alice", "Wonderland") → "Alice Wonderland"
-
-  # --- Step 4: format greetings and write to file -------------------------
-  - generator:
-      name: scarfolder.generators.util.From
-      args:
-        stream: ${steps.full_names}
-    transformer:
-      name: scarfolder.transformers.text.format_template
-      args:
-        template: "Hello, {value}!"
+    transformers:
+      - name: scarfolder.transformers.text.join       # ("Alice","Wonderland") → "Alice Wonderland"
+      - name: scarfolder.transformers.text.format_template
+        args:
+          template: "Hello, {value}!"
     loader:
       name: scarfolder.loaders.file.WriteLines
       args:

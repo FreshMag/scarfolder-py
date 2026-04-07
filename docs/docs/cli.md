@@ -21,7 +21,7 @@ scarfolder run SCARF_FILE [OPTIONS]
 | Option | Description |
 |---|---|
 | `-p`, `--param KEY=VALUE` | Override or supply a config arg. Repeatable. |
-| `--dry-run` | Validate config and resolve placeholders without executing any steps. |
+| `--dry-run` | Validate config without executing any steps. |
 
 ### Examples
 
@@ -36,7 +36,7 @@ scarfolder run pipeline.yaml -planguage=it -pcount=50 -poutput=result.txt
 scarfolder run pipeline.yaml --dry-run
 ```
 
-If a required arg (declared with `null` default) is not supplied via `-p`, the CLI will prompt for it interactively:
+If a required arg (declared with a `null` default) is not supplied via `-p`, the CLI prompts for it interactively:
 
 ```
 Required argument 'output': _
@@ -52,8 +52,20 @@ scarfolder validate SCARF_FILE
 
 ## `list-steps`
 
-Print a summary of all steps and their plugins.
+Print a summary of all steps and their plugin chains.
 
 ```bash
 scarfolder list-steps SCARF_FILE
 ```
+
+Each step is displayed as a chain of its plugins, labelled by role:
+
+```
+Scarf: hello-world
+
+  1. [first_names]  [G] scarfolder.generators.util.Constant
+  2. [last_names]   [G] scarfolder.generators.util.Constant
+  3. [(unnamed)]    [G] scarfolder.generators.util.Combine → [T] text.join → [T] text.format_template → [L] file.WriteLines
+```
+
+Labels: `[G]` = Generator, `[T]` = Transformer, `[L]` = Loader.
