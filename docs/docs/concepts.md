@@ -74,9 +74,10 @@ A `loader` (or `loaders` list) attached to a step receives the final output auto
     name: scarfolder.generators.util.Range
     args:
       stop: 10
-  transformer: scarfolder.transformers.text.format_template
-  args:
-    template: "item {value}"
+  transformer:
+    name: scarfolder.transformers.text.format_template
+    args:
+      template: "item {value}"
   loaders:
     - name: scarfolder.loaders.file.WriteLines
       args: { path: out.txt }

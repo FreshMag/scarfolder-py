@@ -88,12 +88,12 @@ def test_loader_list_normalised():
 
 
 def test_step_with_no_plugin_raises():
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError, match="at least one"):
         StepConfig()
 
 
 def test_both_transformer_and_transformers_raises():
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError, match="either 'transformer' or 'transformers'"):
         StepConfig(
             generator={"name": "pkg.G", "args": {}},
             transformer={"name": "pkg.T1", "args": {}},
