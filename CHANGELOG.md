@@ -2,6 +2,30 @@
 
 <!-- version list -->
 
+## v1.2.0 (2026-04-07)
+
+### Bug Fixes
+
+- Comments from Copilot
+  ([`c18a997`](https://github.com/FreshMag/scarfolder-py/commit/c18a99734fcf751180174785dbdbaf92bce2115a))
+
+### Documentation
+
+- Added CI for building docs on pages
+  ([`1d0b8f7`](https://github.com/FreshMag/scarfolder-py/commit/1d0b8f795ca46d5c92b2c74b711e0836c0544618))
+
+- Added docs and fixed ci
+  ([`5ea995e`](https://github.com/FreshMag/scarfolder-py/commit/5ea995e06cb1f0dc5d44d91b95a98a99fc6d58fe))
+
+- Updated docs and examples
+  ([`efb5d23`](https://github.com/FreshMag/scarfolder-py/commit/efb5d2314f2fd67a2eee27624dee467903772651))
+
+### Features
+
+- Changed to new fluent api
+  ([`62f8801`](https://github.com/FreshMag/scarfolder-py/commit/62f8801033c87e8d1149de37743a325b285dc665))
+
+
 ## v1.1.0 (2026-04-05)
 
 ### Bug Fixes
