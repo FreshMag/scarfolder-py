@@ -1,4 +1,4 @@
-"""Tests for env-var placeholder resolution and the new loaders."""
+"""Tests for env-var placeholder resolution and the loaders."""
 from __future__ import annotations
 
 import os
@@ -64,14 +64,19 @@ def test_env_key_missing_raises():
 # ---------------------------------------------------------------------------
 
 def test_print_loader_basic(capsys):
-    Print().load(["Alice", "Bob"])
+    Print(values=["Alice", "Bob"]).load()
     out = capsys.readouterr().out
     assert "Alice" in out
     assert "Bob" in out
 
 
 def test_print_loader_template(capsys):
-    Print(template="{index}: {value}", header="-- start --", footer="-- end --").load(["x", "y"])
+    Print(
+        values=["x", "y"],
+        template="{index}: {value}",
+        header="-- start --",
+        footer="-- end --",
+    ).load()
     out = capsys.readouterr().out
     assert "0: x" in out
     assert "1: y" in out
@@ -80,7 +85,7 @@ def test_print_loader_template(capsys):
 
 
 def test_print_loader_empty(capsys):
-    Print().load([])
+    Print(values=[]).load()
     out = capsys.readouterr().out
     assert out == ""
 
@@ -121,7 +126,7 @@ from scarfolder.loaders.sql import ExecuteMany
 
 
 def _em(mapping):
-    return ExecuteMany(url="sqlite:///:memory:", query="SELECT 1", mapping=mapping)
+    return ExecuteMany(values=[], url="sqlite:///:memory:", query="SELECT 1", mapping=mapping)
 
 
 def test_to_dict_from_tuple():
@@ -161,7 +166,7 @@ def test_to_dict_length_mismatch_raises():
 
 
 def test_to_dict_no_mapping_raises():
-    em = ExecuteMany(url="sqlite:///:memory:", query="SELECT 1", mapping=None)
+    em = ExecuteMany(values=[], url="sqlite:///:memory:", query="SELECT 1", mapping=None)
     with pytest.raises(ValueError, match="'mapping' must be set"):
         em._to_dict(("x", "y"))
 
@@ -189,16 +194,18 @@ def test_execute_statements_inserts_rows():
     engine = sa.create_engine("sqlite:///:memory:")
     _create_table(engine, "CREATE TABLE names (name TEXT)")
 
-    loader = ExecuteStatements(url="sqlite:///:memory:")
-    # Re-use the same engine by monkeypatching _engine
+    loader = ExecuteStatements(
+        values=[
+            "INSERT INTO names VALUES ('Alice')",
+            "INSERT INTO names VALUES ('Bob')",
+        ],
+        url="sqlite:///:memory:",
+    )
     import scarfolder.loaders.sql as sql_mod
     original = sql_mod._engine
     sql_mod._engine = lambda _url: engine
     try:
-        loader.load([
-            "INSERT INTO names VALUES ('Alice')",
-            "INSERT INTO names VALUES ('Bob')",
-        ])
+        loader.load()
     finally:
         sql_mod._engine = original
 
@@ -216,12 +223,16 @@ def test_execute_statements_stop_on_error():
     original = sql_mod._engine
     sql_mod._engine = lambda _url: engine
     try:
-        loader = ExecuteStatements(url="sqlite:///:memory:", stop_on_error=True)
-        with pytest.raises(sa.exc.IntegrityError):
-            loader.load([
+        loader = ExecuteStatements(
+            values=[
                 "INSERT INTO t VALUES (1)",
                 "INSERT INTO t VALUES (1)",  # duplicate PK — should abort
-            ])
+            ],
+            url="sqlite:///:memory:",
+            stop_on_error=True,
+        )
+        with pytest.raises(sa.exc.IntegrityError):
+            loader.load()
     finally:
         sql_mod._engine = original
 
@@ -237,11 +248,12 @@ def test_execute_many_inserts_rows():
     sql_mod._engine = lambda _url: engine
     try:
         loader = ExecuteMany(
+            values=[("Alice", "Smith"), ("Bob", "Jones")],
             url="sqlite:///:memory:",
             query="INSERT INTO people (first, last) VALUES (:first, :last)",
             mapping=["first", "last"],
         )
-        loader.load([("Alice", "Smith"), ("Bob", "Jones")])
+        loader.load()
     finally:
         sql_mod._engine = original
 
@@ -260,10 +272,11 @@ def test_execute_many_with_dict_values():
     sql_mod._engine = lambda _url: engine
     try:
         loader = ExecuteMany(
+            values=[{"code": "A1", "qty": 10}, {"code": "B2", "qty": 5}],
             url="sqlite:///:memory:",
             query="INSERT INTO items (code, qty) VALUES (:code, :qty)",
         )
-        loader.load([{"code": "A1", "qty": 10}, {"code": "B2", "qty": 5}])
+        loader.load()
     finally:
         sql_mod._engine = original
 

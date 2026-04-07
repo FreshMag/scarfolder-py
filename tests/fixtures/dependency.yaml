@@ -23,4 +23,4 @@ steps:
         streams:
           - ${steps.first_names}
           - ${steps.last_names}
-    transformer: scarfolder.transformers.text.join
+    transformer: scarfolder.transformers.text.join   # values auto-injected
