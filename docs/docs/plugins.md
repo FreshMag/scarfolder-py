@@ -98,6 +98,144 @@ Pairs each item with its index, like Python's `enumerate()`.
 
 ---
 
+### `scarfolder.generators.util.From`
+
+Passes a previous step's output through unchanged. Useful when you only need to attach a transformer or loader to an existing step without generating new data.
+
+| Arg | Type | Description |
+|---|---|---|
+| `stream` | list | The step output to re-use, e.g. `${steps.names}` |
+
+```yaml
+- id: formatted
+  generator:
+    name: scarfolder.generators.util.From
+    args:
+      stream: ${steps.names}
+  transformer: scarfolder.transformers.text.upper
+```
+
+---
+
+### `scarfolder.generators.objects.ObjectGenerator`
+
+Produces a list of dicts by composing named field generators. Each field declares its own data source and an optional chain of transformers. Results are zipped by position — the output length equals the shortest field stream.
+
+Nesting is fully supported: any field's generator can itself be an `ObjectGenerator`.
+
+#### Field config
+
+Each entry in `fields` must have a `name` and exactly one of `generator` or `stream`:
+
+| Key | Type | Description |
+|---|---|---|
+| `name` | str | Key used in the output dict |
+| `generator` | `{name, args}` | A generator plugin config, same shape as everywhere else |
+| `stream` | list | A pre-resolved list — typically `${steps.<id>}` |
+| `transformers` | list of `{name, args}` | Optional transformer chain applied after the field's values are produced. `values` is auto-injected. |
+
+#### Basic example
+
+```yaml
+- id: records
+  generator:
+    name: scarfolder.generators.objects.ObjectGenerator
+    args:
+      fields:
+        - name: id
+          generator:
+            name: scarfolder.generators.util.Range
+            args: {stop: 3}
+        - name: label
+          generator:
+            name: scarfolder.generators.util.Constant
+            args: {value: "item", count: 3}
+# → [{"id": 0, "label": "item"}, {"id": 1, "label": "item"}, {"id": 2, "label": "item"}]
+```
+
+#### Field transformers
+
+A `transformers` list on a field post-processes that field's values before they are zipped into objects:
+
+```yaml
+- id: records
+  generator:
+    name: scarfolder.generators.objects.ObjectGenerator
+    args:
+      fields:
+        - name: tag
+          generator:
+            name: scarfolder.generators.util.Constant
+            args: {value: "hello", count: 3}
+          transformers:
+            - name: scarfolder.transformers.text.upper
+              args: {}
+# → [{"tag": "HELLO"}, {"tag": "HELLO"}, {"tag": "HELLO"}]
+```
+
+#### Using a previous step's output (`stream`)
+
+The `stream` shorthand passes a resolved list directly as the field's values, without wrapping it in a generator. `${steps.<id>}` references are resolved by the pipeline before `ObjectGenerator` is instantiated, and the topological sort automatically waits for the referenced step:
+
+```yaml
+- id: names
+  generator:
+    name: scarfolder.generators.util.Constant
+    args: {value: "alice", count: 3}
+  transformer: scarfolder.transformers.text.capitalize_first
+
+- id: records
+  generator:
+    name: scarfolder.generators.objects.ObjectGenerator
+    args:
+      fields:
+        - name: id
+          generator:
+            name: scarfolder.generators.util.Range
+            args: {stop: 3}
+        - name: name
+          stream: ${steps.names}
+# → [{"id": 0, "name": "Alice"}, {"id": 1, "name": "Alice"}, {"id": 2, "name": "Alice"}]
+```
+
+`stream` can also carry a `transformers` list:
+
+```yaml
+- name: name
+  stream: ${steps.raw_names}
+  transformers:
+    - name: scarfolder.transformers.text.capitalize_first
+      args: {}
+```
+
+#### Nested objects
+
+Any field's generator can be another `ObjectGenerator`, producing nested dicts:
+
+```yaml
+- id: records
+  generator:
+    name: scarfolder.generators.objects.ObjectGenerator
+    args:
+      fields:
+        - name: id
+          generator:
+            name: scarfolder.generators.util.Range
+            args: {stop: 2}
+        - name: meta
+          generator:
+            name: scarfolder.generators.objects.ObjectGenerator
+            args:
+              fields:
+                - name: active
+                  generator:
+                    name: scarfolder.generators.util.Constant
+                    args: {value: true, count: 2}
+# → [{"id": 0, "meta": {"active": true}}, {"id": 1, "meta": {"active": true}}]
+```
+
+---
+
 ## Transformers
 
 Transformers receive a list and return a new list. When used as inline chain steps (attached to a generator), `values` is injected automatically. When used as standalone steps, `values` must be declared explicitly in `args`.
