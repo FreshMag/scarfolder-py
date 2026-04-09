@@ -147,6 +147,16 @@ def test_field_missing_source_raises():
         ObjectGenerator(fields=[{"name": "x"}])
 
 
+def test_field_both_generator_and_stream_raises():
+    with pytest.raises(ValueError, match="both 'generator' and 'stream'"):
+        ObjectGenerator(fields=[{
+            "name": "x",
+            "generator": {"name": "scarfolder.generators.util.Constant",
+                          "args": {"value": 1, "count": 1}},
+            "stream": [1],
+        }])
+
+
 # ---------------------------------------------------------------------------
 # Integration: step reference resolved by pipeline, transformer applied
 # ---------------------------------------------------------------------------
