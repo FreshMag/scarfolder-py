@@ -6,16 +6,14 @@ from typing import Any, Iterable
 from scarfolder.core.base import Generator
 from scarfolder.core.registry import make_generator, make_transformer
 
-_MISSING = object()
-
 
 class ObjectGenerator(Generator):
     """Produce a list of dicts by composing named field generators.
 
-    Each entry in *fields* must have a ``name`` key and either a
-    ``generator`` key, a ``stream`` key, or both.  An optional
-    ``transformers`` list can be added to any field to post-process its
-    values before they are zipped into objects.
+    Each entry in *fields* must have a ``name`` key and **exactly one** of
+    ``generator`` or ``stream``.  An optional ``transformers`` list can be
+    added to any field to post-process its values before they are zipped
+    into objects.
 
     Field config shapes
     -------------------
@@ -72,26 +70,35 @@ class ObjectGenerator(Generator):
     """
 
     def __init__(self, fields: list[dict[str, Any]]) -> None:
-        # Each entry: (field_name, generator_or_None, pre_resolved_stream_or_MISSING, transformer_configs)
+        # Each entry: (field_name, generator_instance_or_None, stream_or_None, transformer_configs)
         self._fields: list[tuple[str, Generator | None, Any, list[dict[str, Any]]]] = []
         for field in fields:
             name = field["name"]
+            has_generator = "generator" in field
+            has_stream = "stream" in field
+
+            if has_generator and has_stream:
+                raise ValueError(
+                    f"Field '{name}' specifies both 'generator' and 'stream'; "
+                    "use exactly one."
+                )
+            if not has_generator and not has_stream:
+                raise ValueError(
+                    f"Field '{name}' must have either a 'generator' or a 'stream' key."
+                )
+
             transformer_cfgs: list[dict[str, Any]] = [
                 {"name": t["name"], "args": t.get("args", {})}
                 for t in field.get("transformers", [])
             ]
 
-            if "generator" in field:
+            if has_generator:
                 gen_cfg = field["generator"]
                 gen = make_generator(gen_cfg["name"], gen_cfg.get("args", {}))
-                self._fields.append((name, gen, _MISSING, transformer_cfgs))
-            elif "stream" in field:
+                self._fields.append((name, gen, None, transformer_cfgs))
+            else:
                 # stream is already resolved to a list by the pipeline resolver
                 self._fields.append((name, None, field["stream"], transformer_cfgs))
-            else:
-                raise ValueError(
-                    f"Field '{name}' must have either a 'generator' or a 'stream' key."
-                )
 
     def generate(self) -> Iterable[dict[str, Any]]:
         streams: list[list[Any]] = []
