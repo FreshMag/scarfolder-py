@@ -2,6 +2,24 @@
 
 <!-- version list -->
 
+## v1.3.0 (2026-04-09)
+
+### Bug Fixes
+
+- Fixed _MISSING sentinel, docstring, error raised instead of silently ignoring stream
+  ([`d939fb0`](https://github.com/FreshMag/scarfolder-py/commit/d939fb0e131e362058987e2de18b720d04c0197b))
+
+### Documentation
+
+- Added documentation for ObjectGenerator
+  ([`e985c1d`](https://github.com/FreshMag/scarfolder-py/commit/e985c1d4cb22d87279365bdbb9894051320f666b))
+
+### Features
+
+- Implemented ObjectGenerator
+  ([`2f35a4b`](https://github.com/FreshMag/scarfolder-py/commit/2f35a4b480368389020a57f576fc48557ffedbd7))
+
+
 ## v1.2.0 (2026-04-07)
 
 ### Bug Fixes
